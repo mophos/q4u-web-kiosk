@@ -48,7 +48,9 @@ export class MainComponent implements OnInit {
   status = 'offline';
   queueNumber: any;
   roomName: any;
-
+  nhsoToken: any;
+  nhsoCid: any;
+cid:any;
   @ViewChild(CountdownComponent) counter: CountdownComponent;
 
   constructor(
@@ -56,11 +58,11 @@ export class MainComponent implements OnInit {
     private alertService: AlertService,
     private kioskService: KioskService,
     private zone: NgZone,
-    private router: Router) {
-    this.route.queryParams
-      .subscribe(params => {
-        this.token = params.token || null;
-      });
+    private router: Router
+  ) {
+    this.route.queryParams.subscribe(params => {
+      this.token = params.token || null;
+    });
   }
 
   ngOnInit() {
@@ -68,19 +70,26 @@ export class MainComponent implements OnInit {
       this.token = this.token || localStorage.getItem('token');
       if (this.token) {
         const decodedToken = this.jwtHelper.decodeToken(this.token);
-        this.notifyUrl = `ws://${decodedToken.NOTIFY_SERVER}:${+decodedToken.NOTIFY_PORT}`;
+        this.notifyUrl = `ws://${
+          decodedToken.NOTIFY_SERVER
+        }:${+decodedToken.NOTIFY_PORT}`;
         this.notifyUser = decodedToken.NOTIFY_USER;
         this.notifyPassword = decodedToken.NOTIFY_PASSWORD;
         this.kioskId = localStorage.getItem('kioskId') || '1';
-        this.urlSendAPIGET = localStorage.getItem('urlSendVisitGet') ? localStorage.getItem('urlSendVisitGet') : null;
-        this.urlSendAPIPOST = localStorage.getItem('urlSendVisitPost') ? localStorage.getItem('urlSendVisitPost') : null;
-        this.isSendAPIGET = localStorage.getItem('isSendAPIGET') === 'Y' ? true : false;
-        this.isSendAPIPOST = localStorage.getItem('isSendAPIPOST') === 'Y' ? true : false;
+        this.urlSendAPIGET = localStorage.getItem('urlSendVisitGet')
+          ? localStorage.getItem('urlSendVisitGet')
+          : null;
+        this.urlSendAPIPOST = localStorage.getItem('urlSendVisitPost')
+          ? localStorage.getItem('urlSendVisitPost')
+          : null;
+        this.isSendAPIGET =
+          localStorage.getItem('isSendAPIGET') === 'Y' ? true : false;
+        this.isSendAPIPOST =
+          localStorage.getItem('isSendAPIPOST') === 'Y' ? true : false;
         this.initialSocket();
       } else {
         this.alertService.error('ไม่พบ TOKEN');
       }
-
     } catch (error) {
       console.log(error);
       this.alertService.serverError();
@@ -91,6 +100,19 @@ export class MainComponent implements OnInit {
     await this.connectWebSocket();
     await this.getInfoHospital();
     await this.getServicePoint();
+    await this.getTokenNHSO();
+  }
+
+  async getTokenNHSO() {
+    try {
+      const rs: any = await this.kioskService.getTokenNHSO(this.token);
+      if (rs.statusCode === 200) {
+        this.nhsoToken = rs.rows.token;
+        this.nhsoCid = rs.rows.cid;
+      }
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   connectWebSocket() {
@@ -126,7 +148,6 @@ export class MainComponent implements OnInit {
       } catch (error) {
         console.log(error);
       }
-
     });
 
     this.client.on('connect', () => {
@@ -135,7 +156,7 @@ export class MainComponent implements OnInit {
         that.isOffline = false;
       });
 
-      that.client.subscribe(topic, { qos: 0 }, (error) => {
+      that.client.subscribe(topic, { qos: 0 }, error => {
         if (error) {
           that.zone.run(() => {
             that.isOffline = true;
@@ -155,7 +176,7 @@ export class MainComponent implements OnInit {
       console.log('MQTT Conection Close');
     });
 
-    this.client.on('error', (error) => {
+    this.client.on('error', error => {
       console.log('MQTT Error');
       that.zone.run(() => {
         that.isOffline = true;
@@ -201,7 +222,9 @@ export class MainComponent implements OnInit {
   async getPatient() {
     try {
       if (this.cardCid) {
-        const rs: any = await this.kioskService.getPatient(this.token, { 'cid': this.cardCid });
+        const rs: any = await this.kioskService.getPatient(this.token, {
+          cid: this.cardCid
+        });
         if (rs.statusCode === 200) {
           this.setDataFromHIS(rs.results);
         }
@@ -212,6 +235,22 @@ export class MainComponent implements OnInit {
     }
   }
 
+  async getPatientByHN(hn) {
+    try {
+      if (hn) {
+        const rs: any = await this.kioskService.getPatientByHN(this.token, {
+          hn: hn
+        });
+        if (rs.statusCode === 200) {
+          return hn;
+        } else {
+          return false;
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   onSelectServicePointList() {
     this.tabServicePoint = true;
@@ -231,11 +270,9 @@ export class MainComponent implements OnInit {
     if (this.cardCid) {
       await this.getPatient();
       await this.getNhso(this.cardCid);
-
     } else {
       this.alertService.error('บัตรมีปัญหา กรุณาเสียบใหม่อีกครั้ง', null, 1000);
     }
-
   }
 
   async setDataFromHIS(data) {
@@ -316,23 +353,35 @@ export class MainComponent implements OnInit {
       sex: this.his.sex
     };
     try {
-
       const rs: any = await this.kioskService.register(this.token, data);
       if (rs.statusCode === 200) {
         if (rs.queueId) {
-          console.log(rs);
-
           await this.print(rs.queueId);
           this.btnSelectServicePoint = false;
           this.tabServicePoint = false;
           if (this.isSendAPIGET) {
-            await this.kioskService.sendAPITRIGGER(this.token, 'GET', this.urlSendAPIGET, this.his.hn, this.cardCid, servicePoint.local_code, servicePoint.service_point_id);
+            await this.kioskService.sendAPITRIGGER(
+              this.token,
+              'GET',
+              this.urlSendAPIGET,
+              this.his.hn,
+              this.cardCid,
+              servicePoint.local_code,
+              servicePoint.service_point_id
+            );
           }
           if (this.isSendAPIPOST) {
-            await this.kioskService.sendAPITRIGGER(this.token, 'POST', this.urlSendAPIPOST, this.his.hn, this.cardCid, servicePoint.local_code, servicePoint.service_point_id);
+            await this.kioskService.sendAPITRIGGER(
+              this.token,
+              'POST',
+              this.urlSendAPIPOST,
+              this.his.hn,
+              this.cardCid,
+              servicePoint.local_code,
+              servicePoint.service_point_id
+            );
           }
           // this.clearData();
-
         }
       } else {
         this.alertService.error('ไม่สามารถลงทะเบียนได้');
@@ -345,24 +394,47 @@ export class MainComponent implements OnInit {
   }
 
   async getNhso(cid) {
-    const nhsoToken = localStorage.getItem('nhsoToken');
-    const nhsoCid = localStorage.getItem('nhsoCid');
-    const data = `<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:tok=\"http://tokenws.ucws.nhso.go.th/\">\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tok:searchCurrentByPID>\n         <!--Optional:-->\n         <user_person_id>${nhsoCid}</user_person_id>\n         <!--Optional:-->\n         <smctoken>${nhsoToken}</smctoken>\n         <!--Optional:-->\n         <person_id>${cid}</person_id>\n      </tok:searchCurrentByPID>\n   </soapenv:Body>\n</soapenv:Envelope>`;
+    const nhsoToken = this.nhsoToken || localStorage.getItem('nhsoToken');
+    const nhsoCid = this.nhsoCid || localStorage.getItem('nhsoCid');
+    const data = `<soapenv:Envelope xmlns:soapenv=\'http://schemas.xmlsoap.org/soap/envelope/\' xmlns:tok=\'http://tokenws.ucws.nhso.go.th/\'>\n   <soapenv:Header/>\n   <soapenv:Body>\n      <tok:searchCurrentByPID>\n         <!--Optional:-->\n         <user_person_id>${nhsoCid}</user_person_id>\n         <!--Optional:-->\n         <smctoken>${nhsoToken}</smctoken>\n         <!--Optional:-->\n         <person_id>${cid}</person_id>\n      </tok:searchCurrentByPID>\n   </soapenv:Body>\n</soapenv:Envelope>`;
     try {
       const nhso: any = {};
       const rs: any = await this.kioskService.getNhso(this.token, data);
       rs.results.forEach(v => {
-        if (v.name === 'hmain') { nhso.hmain = v.elements[0].text; }
-        if (v.name === 'hmain_name') { nhso.hmain_name = v.elements[0].text; }
-        if (v.name === 'maininscl') { nhso.maininscl = v.elements[0].text; }
-        if (v.name === 'maininscl_main') { nhso.maininscl_main = v.elements[0].text; }
-        if (v.name === 'maininscl_name') { nhso.maininscl_name = v.elements[0].text; }
-        if (v.name === 'startdate') { nhso.startdate = v.elements[0].text; }
-        if (v.name === 'startdate_sss') { nhso.startdate_sss = v.elements[0].text; }
+        if (v.name === 'hmain') {
+          nhso.hmain = v.elements[0].text;
+        }
+        if (v.name === 'hmain_name') {
+          nhso.hmain_name = v.elements[0].text;
+        }
+        if (v.name === 'maininscl') {
+          nhso.maininscl = v.elements[0].text;
+        }
+        if (v.name === 'maininscl_main') {
+          nhso.maininscl_main = v.elements[0].text;
+        }
+        if (v.name === 'maininscl_name') {
+          nhso.maininscl_name = v.elements[0].text;
+        }
+        if (v.name === 'startdate') {
+          nhso.startdate = v.elements[0].text;
+        }
+        if (v.name === 'startdate_sss') {
+          nhso.startdate_sss = v.elements[0].text;
+        }
       });
-      this.rightName = nhso.maininscl ? `${nhso.maininscl_name} (${nhso.maininscl})` : '-';
-      this.rightHospital = nhso.hmain ? `${nhso.hmain_name} (${nhso.hmain})` : '-';
-      this.rightStartDate = nhso.startdate ? `${moment(nhso.startdate, 'YYYYMMDD').format('DD MMM ')} ${moment(nhso.startdate, 'YYYYMMDD').get('year')}` : '-';
+      this.rightName = nhso.maininscl
+        ? `${nhso.maininscl_name} (${nhso.maininscl})`
+        : '-';
+      this.rightHospital = nhso.hmain
+        ? `${nhso.hmain_name} (${nhso.hmain})`
+        : '-';
+      this.rightStartDate = nhso.startdate
+        ? `${moment(nhso.startdate, 'YYYYMMDD').format('DD MMM ')} ${moment(
+            nhso.startdate,
+            'YYYYMMDD'
+          ).get('year')}`
+        : '-';
     } catch (error) {
       console.log(error);
       // this.alertService.error(error.message);
@@ -371,6 +443,36 @@ export class MainComponent implements OnInit {
 
   home() {
     this.router.navigate(['/kiosk/setting']);
+  }
 
+  onClickManual() {
+    this.cid = '';
+    this.status = 'manual';
+  }
+
+  onkeycid(num) {
+    if (num === 'x') {
+      this.cid = this.cid.substring(0, this.cid.length - 1);
+    } else if (num === 'b') {
+      this.status = 'offline';
+    } else {
+      if (this.cid.length < 13) {
+        this.cid = `${this.cid || ''}${num}`;
+      }
+    }
+  }
+
+  async onSearchCid() {
+    if (this.cid.length === 13) {
+      this.status = 'online';
+      this.cardCid = this.cid;
+      await this.getPatient();
+      await this.getNhso(this.cardCid);
+    } else {
+      const rs = await this.getPatientByHN(this.cid);
+      this.cardCid = rs.results.cid;
+       await this.getPatient();
+      await this.getNhso(this.cardCid);
+    }
   }
 }

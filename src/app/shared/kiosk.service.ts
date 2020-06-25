@@ -106,6 +106,22 @@ export class KioskService {
     return this.httpClient.post(_url, data, _httpOptions).toPromise();
   }
 
+  async getPatientByHN(token: any = null, data) {
+    const _url = `${this.apiUrl}/kiosk/patient/info/hn`;
+    let _httpOptions = {};
+    if (token) {
+      _httpOptions = {
+        headers: new HttpHeaders({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        })
+      };
+    } else {
+      _httpOptions = this.httpOptions;
+    }
+    return this.httpClient.post(_url, data, _httpOptions).toPromise();
+  }
+
   async getNhso(token, data) {
     const _url = `${this.apiUrl}/kiosk/nhso`;
     let _httpOptions = {};
@@ -152,5 +168,21 @@ export class KioskService {
       _httpOptions = this.httpOptions;
     }
     return this.httpClient.post(_url, _httpOptions).toPromise();
+  }
+
+  async getTokenNHSO(token) {
+    const _url = `${this.apiUrl}/api/nhso`;
+    let _httpOptions = {};
+    if (token) {
+      _httpOptions = {
+        headers: new HttpHeaders({
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        })
+      };
+    } else {
+      _httpOptions = this.httpOptions;
+    }
+    return this.httpClient.get(_url, _httpOptions).toPromise();
   }
 }
