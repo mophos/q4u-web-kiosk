@@ -50,7 +50,7 @@ export class MainComponent implements OnInit {
   roomName: any;
   nhsoToken: any;
   nhsoCid: any;
-cid:any;
+  cid: any;
   @ViewChild(CountdownComponent) counter: CountdownComponent;
 
   constructor(
@@ -72,7 +72,7 @@ cid:any;
         const decodedToken = this.jwtHelper.decodeToken(this.token);
         this.notifyUrl = `ws://${
           decodedToken.NOTIFY_SERVER
-        }:${+decodedToken.NOTIFY_PORT}`;
+          }:${+decodedToken.NOTIFY_PORT}`;
         this.notifyUser = decodedToken.NOTIFY_USER;
         this.notifyPassword = decodedToken.NOTIFY_PASSWORD;
         this.kioskId = localStorage.getItem('kioskId') || '1';
@@ -221,10 +221,14 @@ cid:any;
 
   async getPatient() {
     try {
+      console.log(this.cardCid);
+
       if (this.cardCid) {
         const rs: any = await this.kioskService.getPatient(this.token, {
           cid: this.cardCid
         });
+        console.log(rs);
+
         if (rs.statusCode === 200) {
           this.setDataFromHIS(rs.results);
         }
@@ -242,7 +246,7 @@ cid:any;
           hn: hn
         });
         if (rs.statusCode === 200) {
-          return hn;
+          return rs.results.cid;
         } else {
           return false;
         }
@@ -276,6 +280,8 @@ cid:any;
   }
 
   async setDataFromHIS(data) {
+    console.log(data);
+
     this.his = data;
     this.hisHn = data.hn;
     this.hisFullName = `${data.title}${data.firstName} ${data.lastName}`;
@@ -431,9 +437,9 @@ cid:any;
         : '-';
       this.rightStartDate = nhso.startdate
         ? `${moment(nhso.startdate, 'YYYYMMDD').format('DD MMM ')} ${moment(
-            nhso.startdate,
-            'YYYYMMDD'
-          ).get('year')}`
+          nhso.startdate,
+          'YYYYMMDD'
+        ).get('year')}`
         : '-';
     } catch (error) {
       console.log(error);
@@ -469,10 +475,17 @@ cid:any;
       await this.getPatient();
       await this.getNhso(this.cardCid);
     } else {
-      const rs = await this.getPatientByHN(this.cid);
-      this.cardCid = rs.results.cid;
-       await this.getPatient();
-      await this.getNhso(this.cardCid);
+      const rs: any = await this.getPatientByHN(this.cid);
+      console.log(rs);
+      if (rs) {
+        console.log('1');
+        this.status = 'online';
+        this.cardCid = rs;
+        await this.getPatient();
+        await this.getNhso(this.cardCid);
+      } else {
+        this.alertService.error('ไม่พบ CID');
+      }
     }
   }
 }
